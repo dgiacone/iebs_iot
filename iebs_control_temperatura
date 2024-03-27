@@ -1,0 +1,129 @@
+#include <ESP8266WiFi.h>
+#include "Adafruit_MQTT.h"
+#include "Adafruit_MQTT_Client.h"
+#include <DHT.h>
+
+#define DHTPIN 5   // Pin digital al que está conectado el sensor DHT11
+#define DHTTYPE DHT11   // Tipo de sensor DHT (DHT11 o DHT22)
+
+DHT dht(DHTPIN, DHTTYPE);
+// Define el pin al que está conectado el sensor de proximidad
+const int pinSensorProximidad = 2; // Por ejemplo, conectado al pin digital 
+
+/************************* Configuración de WiFi *******************************/
+#define WIFI_SSID       "LEOWIFI"
+#define WIFI_PASSWORD   "L0stD0gs"
+
+/************************* Configuración de MQTT *******************************/
+#define MQTT_SERVER      "io.adafruit.com"
+#define MQTT_SERVERPORT  1883       
+#define MQTT_PORT       1883            
+#define MQTT_USERNAME    "damiangiacone"
+#define MQTT_KEY         " "
+#define TOPICO           "cale"
+
+/********** Instanciación de los objetos de conexión MQTT ***********************/
+
+/************************* Configuración de MQTT  Chyntia*******************************/
+#define MQTT_SERVER_C      "io.adafruit.com"
+#define MQTT_SERVERPORT_C  1883       
+#define MQTT_PORT_C       1883            
+#define MQTT_USERNAME_C    "damiangiacone2"
+#define MQTT_KEY_C       ""
+#define TOPICO_C           "cale"
+
+/********** Instanciación de los objetos de conexión MQTT ***********************/
+
+WiFiClient client;
+Adafruit_MQTT_Client mqtt(&client, MQTT_SERVER, MQTT_SERVERPORT, MQTT_USERNAME, MQTT_KEY);
+//Adafruit_MQTT_Client mqtt_c(&client, MQTT_SERVER, MQTT_SERVERPORT, MQTT_USERNAME, MQTT_KEY);
+
+/************ Definición de los feeds MQTT que utilizarás *********************/
+Adafruit_MQTT_Publish humedad = Adafruit_MQTT_Publish(&mqtt, MQTT_USERNAME "/feeds/humedad");
+Adafruit_MQTT_Publish temperatura = Adafruit_MQTT_Publish(&mqtt, MQTT_USERNAME "/feeds/temperatura");
+Adafruit_MQTT_Subscribe calefaccion = Adafruit_MQTT_Subscribe(&mqtt, MQTT_USERNAME "/feeds/cale");
+
+Adafruit_MQTT_Publish temperatura_c = Adafruit_MQTT_Publish(&mqtt, MQTT_USERNAME_C "/feeds/temperatura-c");
+
+
+
+/************ Definición de los feeds MQTT que utilizarás ********************
+Adafruit_MQTT_Publish humedad = Adafruit_MQTT_Publish(&mqtt_c, MQTT_USERNAME "/feeds/humedad");
+Adafruit_MQTT_Publish temperatura = Adafruit_MQTT_Publish(&mqtt_c, MQTT_USERNAME "/feeds/temperatura");
+Adafruit_MQTT_Subscribe calefaccion = Adafruit_MQTT_Subscribe(&mqtt_c, MQTT_USERNAME "/feeds/cale");
+*/
+
+
+void setup() {
+  randomSeed(analogRead(0)); // Inicializar la semilla aleatoria
+  Serial.begin(115200);
+  delay(10);
+  mqtt.subscribe(&calefaccion);
+  Serial.println("Conectando a WiFi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+ 
+  }
+  Serial.println("");
+  Serial.println("Conexión WiFi establecida.");
+
+  Serial.println("Conectando al servidor MQTT...");
+  int8_t ret;
+  while ((ret = mqtt.connect()) != 0) { 
+    Serial.println(mqtt.connectErrorString(ret));
+    Serial.println("Reintentando conexión MQTT en 5 segundos...");
+    mqtt.disconnect();
+    delay(5000);  
+  }
+  Serial.println("Conexión MQTT establecida.");
+}
+
+
+void loop() {
+  Serial.println("");
+  Serial.println("Inicio Ciclo");
+
+ 
+
+  float h = dht.readHumidity();
+  float t = dht.readTemperature(); // Puede ser en Celsius o Fahrenheit (consulta la documentación)
+  Serial.println(t);
+  Serial.println(h);
+
+  /*if (isnan(h) || isnan(t)) {
+     
+      t = random(10, 25); // Generar un número entero entre 200 y 35
+      h = random(30, 45); // Generar un número entero entre 200 y 350
+  }*/
+ Serial.println("Publicando Temperatura");
+
+  if (!humedad.publish(h)) {
+    Serial.println("Error al publicar temperatura.");
+  }
+   if (!temperatura.publish(t)) {
+    
+    Serial.println("Error al publicar temperatura.");
+  }
+
+    if (!temperatura_c.publish(t)) {
+    
+    Serial.println("Error al publicar temperatura.");
+  }
+Serial.print(F("Leyendo subscripcion"));
+ Adafruit_MQTT_Subscribe *subscription;
+  while ((subscription = mqtt.readSubscription(5000))) {
+    if (subscription == &calefaccion) {
+      Serial.print(F("Mensaje recibido desde el tópico '"));
+      Serial.print(F("CALEFACCION"));
+      Serial.print(F("': "));
+      Serial.println((char *)calefaccion.lastread);
+ 
+
+    }
+  }
+  delay(5000); // Lee la temperatura y la humedad cada 2 segundos
+ 
+  
+}
